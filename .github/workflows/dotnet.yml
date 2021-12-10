@@ -1,0 +1,38 @@
+name: .NET
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+    - name: Restore dependencies for program (win-x64)
+      run: dotnet restore --runtime win-x64 ToVPCCostumePatcher/ToVPCCostumePatcher.csproj
+    - name: Build program (win-x64)
+      run: dotnet build --configuration Release --runtime win-x64 --no-restore ToVPCCostumePatcher/ToVPCCostumePatcher.csproj
+    - name: Publish (win-x64)
+      run: dotnet publish --configuration Release --runtime win-x64 --self-contained false --no-build ToVPCCostumePatcher/ToVPCCostumePatcher.csproj
+    - run: mv LICENSE LICENSE_ToVPCCostumePatcher
+    - run: mv HyoutaTools/LICENSE LICENSE_HyoutaTools
+    - run: mv HyoutaTools/utf_tab-sharp/LICENSE LICENSE_utf_tab-sharp
+    - run: mv HyoutaTools/zlib-sharp/LICENSE LICENSE_zlib-sharp
+    - run: mv HyoutaTools/HyoutaUtils/LICENSE LICENSE_HyoutaUtils
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ToVPCCostumePatcher-Windows-x64
+        path: |
+          ToVPCCostumePatcher/bin/Release/*/win-x64/publish
+          LICENSE*
