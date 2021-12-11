@@ -516,7 +516,8 @@ namespace ToVPCCostumePatcher {
 
 		static void Main(string[] args) {
 			if (args.Length == 0) {
-				Console.WriteLine("Single argument: Path to Data64 directory.");
+				Console.WriteLine("1st argument: Path to Data64 directory.");
+				Console.WriteLine("2nd argument (optional): Path to DLCDATA directory of PS3 version. Files should be already decrypted, and named like 'KAR_C210.edat.unedat'.");
 				Console.WriteLine("Generates custom DLC costume files.");
 				return;
 			}
