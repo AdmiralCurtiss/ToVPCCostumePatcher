@@ -320,9 +320,11 @@ namespace ToVPCCostumePatcher {
 			}
 			new_txv.Position = 0;
 
-			MemoryStream new_txm = ps3fps4.GetChildByIndex(18).AsFile.DataStream.CopyToMemoryAndDispose();
-			new_txm.Position = 0x48;
-			new_txm.WriteUInt32(offsets[1], EndianUtils.Endianness.BigEndian);
+			MemoryStream new_txm = ps3fps4.GetChildByIndex(txmidx_ps3).AsFile.DataStream.CopyToMemoryAndDispose();
+			for (int i = 0; i < offsets.Count; ++i) {
+				new_txm.Position = 0x2c + i * 0x1c;
+				new_txm.WriteUInt32(offsets[i], EndianUtils.Endianness.BigEndian);
+			}
 			new_txm.Position = 0;
 
 			pcfiles[txmidx_pc].DataStream = new_txm.CopyToByteArrayStreamAndDispose();
@@ -331,7 +333,6 @@ namespace ToVPCCostumePatcher {
 			pcfiles[txvidx_pc].Length = pcfiles[txvidx_pc].DataStream.Length;
 		}
 
-		// this isn't quite right yet but it can't be too far off...
 		public static (DuplicatableStream data, DuplicatableStream info) BuildKAR_C210(FPS4 chara_svo, string data64path, FPS4 kar210_ps3) {
 			using var kar210_0_ps3 = new FPS4(kar210_ps3.GetChildByIndex(0).AsFile.DataStream);
 			using var kar101 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("KAR_C101.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
