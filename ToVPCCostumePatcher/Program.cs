@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using HyoutaUtils.Streams;
+using System.Linq;
 
 namespace ToVPCCostumePatcher {
 	class Program {
@@ -136,37 +137,8 @@ namespace ToVPCCostumePatcher {
 				fre500_0_files[i].RelativePath = fre500_0_ps3.Files[i].Metadata[0].Value;
 			}
 
-			{
-				var fre500_0_hair_4 = new Model4(fre500_0_ps3.GetChildByIndex(14).AsFile.DataStream, EndianUtils.Endianness.BigEndian);
-				fre500_0_files[14].DataStream = fre500_0_hair_4.Serialize(0x80, EndianUtils.Endianness.LittleEndian);
-				fre500_0_files[14].Length = fre500_0_files[14].DataStream.Length;
-			}
-
-			{
-				var txm = new HyoutaTools.Tales.Vesperia.Texture.TXM(fre500_0_ps3.GetChildByIndex(18).AsFile.DataStream);
-				var txv = new HyoutaTools.Tales.Vesperia.Texture.TXV(txm, fre500_0_ps3.GetChildByIndex(19).AsFile.DataStream, false);
-				List<uint> offsets = new List<uint>();
-				MemoryStream new_txv = new MemoryStream();
-				foreach (HyoutaTools.Tales.Vesperia.Texture.TXVSingle ts in txv.textures) {
-					foreach (var tex in ts.GetDiskWritableStreams()) {
-						tex.data.Position = 0;
-						offsets.Add((uint)new_txv.Position);
-						new_txv.WriteUInt32((uint)tex.data.Length, EndianUtils.Endianness.BigEndian);
-						StreamUtils.CopyStream(tex.data, new_txv, tex.data.Length);
-					}
-				}
-				new_txv.Position = 0;
-
-				MemoryStream new_txm = fre500_0_ps3.GetChildByIndex(18).AsFile.DataStream.CopyToMemoryAndDispose();
-				new_txm.Position = 0x48;
-				new_txm.WriteUInt32(offsets[1], EndianUtils.Endianness.BigEndian);
-				new_txm.Position = 0;
-
-				fre500_0_files[18].DataStream = new_txm.CopyToByteArrayStreamAndDispose();
-				fre500_0_files[18].Length = fre500_0_files[18].DataStream.Length;
-				fre500_0_files[19].DataStream = new_txv.CopyToByteArrayStreamAndDispose();
-				fre500_0_files[19].Length = fre500_0_files[19].DataStream.Length;
-			}
+			ConvertModelPart4(fre500_0_ps3, fre500_0_files, 14, 14);
+			ConvertTxmTxv(fre500_0_ps3, fre500_0_files, 18, 19, 18, 19);
 
 			var fre500_0 = new MemoryStream();
 			FPS4.Pack(
@@ -235,6 +207,233 @@ namespace ToVPCCostumePatcher {
 			info.Chr.Add(("KK_GDT0", "W_SWO_FRE_C001"));
 			info.Chr.Add(("KK_BONE1", "4535"));
 			info.Chr.Add(("KK_GDT1", "W_SWO_F_05_01"));
+
+			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
+		}
+
+		private static void ConvertModelPart4(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int idx_ps3, int idx_pc) {
+			var m4 = new Model4(ps3fps4.GetChildByIndex(idx_ps3).AsFile.DataStream, EndianUtils.Endianness.BigEndian);
+			pcfiles[idx_pc].DataStream = m4.Serialize(0x80, EndianUtils.Endianness.LittleEndian);
+			pcfiles[idx_pc].Length = pcfiles[idx_pc].DataStream.Length;
+		}
+
+		private static void ConvertModelPart7(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int idx_ps3, int idx_pc) {
+			var m7 = new Model7(ps3fps4.GetChildByIndex(idx_ps3).AsFile.DataStream, EndianUtils.Endianness.BigEndian);
+			pcfiles[idx_pc].DataStream = m7.Serialize(0x80, EndianUtils.Endianness.LittleEndian);
+			pcfiles[idx_pc].Length = pcfiles[idx_pc].DataStream.Length;
+		}
+
+		private static void FakeConvertModelPart6(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int idx_ps3, int idx_pc, uint string_block_start) {
+			MemoryStream ms = ps3fps4.GetChildByIndex(idx_ps3).AsFile.DataStream.CopyToMemoryAndDispose();
+			FakeConvertModelPart6BigToLittle(ms, string_block_start);
+			ms.Position = 0;
+			pcfiles[idx_pc].DataStream = ms.CopyToByteArrayStreamAndDispose();
+			pcfiles[idx_pc].Length = pcfiles[idx_pc].DataStream.Length;
+		}
+
+		private static void FakeConvertModelPart6BigToLittle(MemoryStream ms, uint string_block_start) {
+			ms.Position = 0xc;
+			uint count = ms.ReadUInt32(EndianUtils.Endianness.BigEndian);
+
+			List<uint> b16_offsets = new List<uint>();
+			for (int i = 0; i < count; ++i) {
+				ms.Position = 0x24 + 0x30 * count + 0x3c * i + 0x18;
+				uint p = (uint)ms.Position;
+				b16_offsets.Add(p + ms.ReadUInt32(EndianUtils.Endianness.BigEndian));
+			}
+			b16_offsets.Add(string_block_start);
+
+			uint cutoff_32_16 = b16_offsets[0];
+			ms.Position = 0;
+			for (uint i = 0; i < cutoff_32_16; i += 4) {
+				uint v = ms.PeekUInt32(EndianUtils.Endianness.BigEndian);
+				ms.WriteUInt32(v, EndianUtils.Endianness.LittleEndian);
+			}
+			for (int i = 1; i < b16_offsets.Count; ++i) {
+				uint start = b16_offsets[i - 1] + 4;
+				uint end = b16_offsets[i];
+				uint init = ms.PeekUInt32(EndianUtils.Endianness.BigEndian);
+				ms.WriteUInt32(init, EndianUtils.Endianness.LittleEndian);
+				for (uint j = start; j < end; j += 2) {
+					ushort v = ms.PeekUInt16(EndianUtils.Endianness.BigEndian);
+					ms.WriteUInt16(v, EndianUtils.Endianness.LittleEndian);
+				}
+			}
+		}
+
+		private static void FakeConvertModelPart0(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int idx_ps3, int idx_pc, uint[] swap16s) {
+			MemoryStream ms = ps3fps4.GetChildByIndex(idx_ps3).AsFile.DataStream.CopyToMemoryAndDispose();
+			ByteSwap32With16Exceptions(ms, swap16s);
+			ms.Position = 0;
+			pcfiles[idx_pc].DataStream = ms.CopyToByteArrayStreamAndDispose();
+			pcfiles[idx_pc].Length = pcfiles[idx_pc].DataStream.Length;
+		}
+
+		private static void ByteSwap32With16Exceptions(MemoryStream ms, uint[] swap16s) {
+			var swap16set = swap16s.ToHashSet();
+			long len = ms.Length;
+			for (uint i = 0; i < len; i += 4) {
+				if (swap16set.Contains(i)) {
+					ushort v0 = ms.PeekUInt16(EndianUtils.Endianness.BigEndian);
+					ms.WriteUInt16(v0, EndianUtils.Endianness.LittleEndian);
+					ushort v1 = ms.PeekUInt16(EndianUtils.Endianness.BigEndian);
+					ms.WriteUInt16(v1, EndianUtils.Endianness.LittleEndian);
+				} else {
+					uint v = ms.PeekUInt32(EndianUtils.Endianness.BigEndian);
+					ms.WriteUInt32(v, EndianUtils.Endianness.LittleEndian);
+				}
+			}
+		}
+
+		private static void FakeConvertModelPart3(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int idx_ps3, int idx_pc, uint swapstopstart, uint swapstopend) {
+			MemoryStream ms = ps3fps4.GetChildByIndex(idx_ps3).AsFile.DataStream.CopyToMemoryAndDispose();
+			ByteSwap32WithoutRange(ms, swapstopstart, swapstopend);
+			ms.Position = 0;
+			pcfiles[idx_pc].DataStream = ms.CopyToByteArrayStreamAndDispose();
+			pcfiles[idx_pc].Length = pcfiles[idx_pc].DataStream.Length;
+		}
+
+		private static void ByteSwap32WithoutRange(MemoryStream ms, uint swapstopstart, uint swapstopend) {
+			long len = ms.Length;
+			for (uint i = 0; i < len; i += 4) {
+				if (i >= swapstopstart && i < swapstopend) {
+					ms.Position += 4;
+				} else {
+					uint v = ms.PeekUInt32(EndianUtils.Endianness.BigEndian);
+					ms.WriteUInt32(v, EndianUtils.Endianness.LittleEndian);
+				}
+			}
+		}
+
+		private static void ConvertTxmTxv(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int txmidx_ps3, int txvidx_ps3, int txmidx_pc, int txvidx_pc) {
+			var txm = new HyoutaTools.Tales.Vesperia.Texture.TXM(ps3fps4.GetChildByIndex(txmidx_ps3).AsFile.DataStream);
+			var txv = new HyoutaTools.Tales.Vesperia.Texture.TXV(txm, ps3fps4.GetChildByIndex(txvidx_ps3).AsFile.DataStream, false);
+			List<uint> offsets = new List<uint>();
+			MemoryStream new_txv = new MemoryStream();
+			foreach (HyoutaTools.Tales.Vesperia.Texture.TXVSingle ts in txv.textures) {
+				foreach (var tex in ts.GetDiskWritableStreams()) {
+					tex.data.Position = 0;
+					offsets.Add((uint)new_txv.Position);
+					new_txv.WriteUInt32((uint)tex.data.Length, EndianUtils.Endianness.BigEndian);
+					StreamUtils.CopyStream(tex.data, new_txv, tex.data.Length);
+				}
+			}
+			new_txv.Position = 0;
+
+			MemoryStream new_txm = ps3fps4.GetChildByIndex(18).AsFile.DataStream.CopyToMemoryAndDispose();
+			new_txm.Position = 0x48;
+			new_txm.WriteUInt32(offsets[1], EndianUtils.Endianness.BigEndian);
+			new_txm.Position = 0;
+
+			pcfiles[txmidx_pc].DataStream = new_txm.CopyToByteArrayStreamAndDispose();
+			pcfiles[txmidx_pc].Length = pcfiles[txmidx_pc].DataStream.Length;
+			pcfiles[txvidx_pc].DataStream = new_txv.CopyToByteArrayStreamAndDispose();
+			pcfiles[txvidx_pc].Length = pcfiles[txvidx_pc].DataStream.Length;
+		}
+
+		// this isn't quite right yet but it can't be too far off...
+		public static (DuplicatableStream data, DuplicatableStream info) BuildKAR_C210(FPS4 chara_svo, string data64path, FPS4 kar210_ps3) {
+			using var kar210_0_ps3 = new FPS4(kar210_ps3.GetChildByIndex(0).AsFile.DataStream);
+			using var kar101 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("KAR_C101.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
+			using var kar101_0 = new FPS4(kar101.GetChildByIndex(0).AsFile.DataStream);
+
+			List<PackFileInfo> kar210_0_files = new List<PackFileInfo>();
+			for (int j = 0; j < 2; ++j) {
+				for (int i = 60; i < 70; ++i) {
+					var child = kar101_0.Files[i];
+					if (child.ShouldSkip || child.FileSize == null) {
+						throw new Exception("not implemented");
+					}
+					string path = child.Metadata[0].Value;
+					kar210_0_files.Add(new PackFileInfo() {
+						Name = child.FileName,
+						Length = child.FileSize.Value,
+						DataStream = kar101_0.GetChildByIndex(i).AsFile.DataStream,
+						RelativePath = path
+					});
+				}
+			}
+			for (int i = 0; i < 10; ++i) {
+				kar210_0_files[i].RelativePath = kar210_0_ps3.Files[i].Metadata[0].Value;
+			}
+			for (int i = 10; i < 20; ++i) {
+				kar210_0_files[i].RelativePath = kar210_0_ps3.Files[i].Metadata[0].Value;
+			}
+
+			ConvertModelPart4(kar210_0_ps3, kar210_0_files, 4, 4);
+			ConvertModelPart4(kar210_0_ps3, kar210_0_files, 14, 14);
+			ConvertModelPart7(kar210_0_ps3, kar210_0_files, 7, 7);
+			ConvertModelPart7(kar210_0_ps3, kar210_0_files, 17, 17);
+			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 8, 9, 8, 9);
+			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 18, 19, 18, 19);
+			FakeConvertModelPart6(kar210_0_ps3, kar210_0_files, 6, 6, 0x6b9c);
+			FakeConvertModelPart6(kar210_0_ps3, kar210_0_files, 16, 16, 0x12ba0);
+			FakeConvertModelPart0(kar210_0_ps3, kar210_0_files, 0, 0, new uint[] { 0x128, 0x15c, 0x174, 0x190, 0x1a8, 0x1b0 });
+			FakeConvertModelPart3(kar210_0_ps3, kar210_0_files, 3, 3, 0x3bc, 0x460);
+
+			var kar210_0 = new MemoryStream();
+			FPS4.Pack(
+				kar210_0_files,
+				kar210_0,
+				kar101_0.ContentBitmask,
+				kar101_0.Endian,
+				kar101_0.Unknown2,
+				null,
+				kar101_0.ArchiveName,
+				0,
+				0x8,
+				metadata: "p",
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: kar101_0.Files[kar101_0.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+			kar210_0.Position = 0;
+			var kar210_0b = kar210_0.CopyToByteArrayStreamAndDispose();
+
+			List<PackFileInfo> costume_archive_files = new List<PackFileInfo>();
+			costume_archive_files.Add(new PackFileInfo() { Length = kar210_0b.Length, DataStream = kar210_0b });
+			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[1].FileSize.Value, DataStream = kar101.GetChildByIndex(1).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[2].FileSize.Value, DataStream = kar101.GetChildByIndex(2).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[3].FileSize.Value, DataStream = kar101.GetChildByIndex(3).AsFile.DataStream });
+
+			var costume_archive_stream = new MemoryStream();
+			FPS4.Pack(
+				costume_archive_files,
+				costume_archive_stream,
+				kar101.ContentBitmask,
+				kar101.Endian,
+				kar101.Unknown2,
+				null,
+				"KAR_C210",
+				0,
+				4,
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: kar101.Files[kar101.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+
+			var info = new ModelInfoFile() {
+				Chara = 3,
+				Name = "keroro conversion",
+				Expl = "keroro conversion",
+				FameId = 141,
+				ItemId = 1593,
+				File = "KAR_C210.dat",
+			};
+			info.Chr.Add(("NAME", "KAR_C210"));
+			info.Chr.Add(("BASE", "KAR_C000"));
+			info.Chr.Add(("BONE", "KAR_C000_BONE"));
+			List<string> uniqueFilenames = new List<string>();
+			for (int i = 0; i < kar210_0_files.Count; ++i) {
+				if (!uniqueFilenames.Contains(kar210_0_files[i].RelativePath)) {
+					uniqueFilenames.Add(kar210_0_files[i].RelativePath);
+				}
+			}
+			for (int i = 0; i < uniqueFilenames.Count; ++i) {
+				info.Chr.Add((i.ToString(System.Globalization.CultureInfo.InvariantCulture), uniqueFilenames[i]));
+			}
 
 			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
 		}
@@ -346,6 +545,17 @@ namespace ToVPCCostumePatcher {
 						}
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCINFO/FRE_C500.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(fre500.info, fs);
+						}
+					}
+
+					string kar_c210_path = Path.Combine(ps3dlcpath, "KAR_C210.edat.unedat");
+					if (File.Exists(kar_c210_path)) {
+						var kar210 = BuildKAR_C210(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(kar_c210_path).CopyToByteArrayAndDispose()))));
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/KAR_C210.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(kar210.data, fs);
+						}
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCINFO/KAR_C210.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(kar210.info, fs);
 						}
 					}
 				}
