@@ -439,6 +439,239 @@ namespace ToVPCCostumePatcher {
 			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
 		}
 
+		public static (DuplicatableStream data, DuplicatableStream info) BuildEST_C500(FPS4 chara_svo, string data64path, FPS4 est500_ps3) {
+			using var est500_0_ps3 = new FPS4(est500_ps3.GetChildByIndex(0).AsFile.DataStream);
+			using var est000 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("EST_C000.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
+			using var est000_0 = new FPS4(est000.GetChildByIndex(0).AsFile.DataStream);
+			using var est501 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(Path.Combine(data64path, "DLC/DLCDATA/EST_C501.dat")).CopyToByteArrayAndDispose())));
+			using var est501_0 = new FPS4(est501.GetChildByIndex(0).AsFile.DataStream);
+
+			List<PackFileInfo> est500_0_files = new List<PackFileInfo>();
+			for (int i = 0; i < 10; ++i) {
+				var child = est000_0.Files[i];
+				if (child.ShouldSkip || child.FileSize == null) {
+					throw new Exception("not implemented");
+				}
+				string path = child.Metadata[0].Value;
+				est500_0_files.Add(new PackFileInfo() {
+					Name = child.FileName,
+					Length = child.FileSize.Value,
+					DataStream = est000_0.GetChildByIndex(i).AsFile.DataStream,
+					RelativePath = path
+				});
+			}
+			for (int i = 60; i < 70; ++i) {
+				var child = est501_0.Files[i];
+				if (child.ShouldSkip || child.FileSize == null) {
+					throw new Exception("not implemented");
+				}
+				string path = child.Metadata[0].Value;
+				est500_0_files.Add(new PackFileInfo() {
+					Name = child.FileName,
+					Length = child.FileSize.Value,
+					DataStream = est501_0.GetChildByIndex(i).AsFile.DataStream,
+					RelativePath = path
+				});
+			}
+			for (int i = 10; i < 60; ++i) {
+				var child = est501_0.Files[i];
+				if (child.ShouldSkip || child.FileSize == null) {
+					throw new Exception("not implemented");
+				}
+				string path = child.Metadata[0].Value;
+				est500_0_files.Add(new PackFileInfo() {
+					Name = child.FileName,
+					Length = child.FileSize.Value,
+					DataStream = est501_0.GetChildByIndex(i).AsFile.DataStream,
+					RelativePath = path
+				});
+			}
+			for (int i = 10; i < 20; ++i) {
+				est500_0_files[i].RelativePath = est500_0_ps3.Files[i].Metadata[0].Value;
+			}
+
+			ConvertModelPart4(est500_0_ps3, est500_0_files, 14, 14);
+			ConvertTxmTxv(est500_0_ps3, est500_0_files, 18, 19, 18, 19);
+			FakeConvertModelPart0(est500_0_ps3, est500_0_files, 10, 10, new uint[] { 0x194, 0x1c8, 0x1fc, 0x230, 0x280 });
+			FakeConvertModelPart3(est500_0_ps3, est500_0_files, 13, 13, 0x58c, 0x660);
+			FakeConvertModelPart6(est500_0_ps3, est500_0_files, 16, 16, 0x8668);
+
+			var est500_0 = new MemoryStream();
+			FPS4.Pack(
+				est500_0_files,
+				est500_0,
+				est501_0.ContentBitmask,
+				est501_0.Endian,
+				est501_0.Unknown2,
+				null,
+				est501_0.ArchiveName,
+				0,
+				0x8,
+				metadata: "p",
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: est501_0.Files[est501_0.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+			est500_0.Position = 0;
+			var est500_0b = est500_0.CopyToByteArrayStreamAndDispose();
+
+			List<PackFileInfo> costume_archive_files = new List<PackFileInfo>();
+			costume_archive_files.Add(new PackFileInfo() { Length = est500_0b.Length, DataStream = est500_0b });
+			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[1].FileSize.Value, DataStream = est501.GetChildByIndex(1).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[2].FileSize.Value, DataStream = est501.GetChildByIndex(2).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[3].FileSize.Value, DataStream = est501.GetChildByIndex(3).AsFile.DataStream });
+
+			var costume_archive_stream = new MemoryStream();
+			FPS4.Pack(
+				costume_archive_files,
+				costume_archive_stream,
+				est501.ContentBitmask,
+				est501.Endian,
+				est501.Unknown2,
+				null,
+				"EST_C500",
+				0,
+				4,
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: est501.Files[est501.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+
+			var info = new ModelInfoFile() {
+				Chara = 2,
+				Name = "estelle abyss conversion",
+				Expl = "estelle abyss conversion",
+				FameId = 91,
+				ItemId = 1583,
+				File = "EST_C500.dat",
+			};
+			info.Chr.Add(("NAME", "EST_C500"));
+			info.Chr.Add(("BASE", "EST_C000"));
+			info.Chr.Add(("BONE", "EST_C000_BONE"));
+			List<string> uniqueFilenames = new List<string>();
+			for (int i = 0; i < est500_0_files.Count; ++i) {
+				if (!uniqueFilenames.Contains(est500_0_files[i].RelativePath)) {
+					uniqueFilenames.Add(est500_0_files[i].RelativePath);
+				}
+			}
+			for (int i = 0; i < uniqueFilenames.Count; ++i) {
+				info.Chr.Add((i.ToString(System.Globalization.CultureInfo.InvariantCulture), uniqueFilenames[i]));
+			}
+			info.Chr.Add(("KK_BONE0", "4124"));
+			info.Chr.Add(("KK_GDT0", "KK_RING00_EST"));
+
+			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
+		}
+
+		public static (DuplicatableStream data, DuplicatableStream info) BuildYUR_C500(FPS4 chara_svo, string data64path, FPS4 yur500_ps3) {
+			using var yur500_0_ps3 = new FPS4(yur500_ps3.GetChildByIndex(0).AsFile.DataStream);
+			using var yur501 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(Path.Combine(data64path, "DLC/DLCDATA/YUR_C501.dat")).CopyToByteArrayAndDispose())));
+			using var yur501_0 = new FPS4(yur501.GetChildByIndex(0).AsFile.DataStream);
+
+			List<PackFileInfo> yur500_0_files = new List<PackFileInfo>();
+			for (int j = 0; j < 2; ++j) {
+				for (int i = 0; i < 40; ++i) {
+					if ((i >= 10 && i < 30) == (j == 0)) continue;
+					var child = yur501_0.Files[i];
+					if (child.ShouldSkip || child.FileSize == null) {
+						throw new Exception("not implemented");
+					}
+					string path = child.Metadata[0].Value;
+					yur500_0_files.Add(new PackFileInfo() {
+						Name = child.FileName,
+						Length = child.FileSize.Value,
+						DataStream = yur501_0.GetChildByIndex(i).AsFile.DataStream,
+						RelativePath = path
+					});
+				}
+			}
+			for (int i = 10; i < 20; ++i) {
+				yur500_0_files[i].RelativePath = yur500_0_ps3.Files[i].Metadata[0].Value;
+			}
+			for (int i = 30; i < 40; ++i) {
+				yur500_0_files[i].RelativePath = yur500_0_ps3.Files[i].Metadata[0].Value;
+			}
+
+			FakeConvertModelPart0(yur500_0_ps3, yur500_0_files, 10, 10, new uint[] { 0x164, 0x198, 0x1b8, 0x210 });
+			ConvertModelPart4(yur500_0_ps3, yur500_0_files, 14, 14);
+			ConvertModelPart4(yur500_0_ps3, yur500_0_files, 34, 34);
+			FakeConvertModelPart6(yur500_0_ps3, yur500_0_files, 16, 16, 0x1c48);
+			FakeConvertModelPart6(yur500_0_ps3, yur500_0_files, 36, 36, 0x7d70);
+			ConvertModelPart7(yur500_0_ps3, yur500_0_files, 17, 17);
+			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 18, 19, 18, 19);
+			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 38, 39, 38, 39);
+
+			var yur500_0 = new MemoryStream();
+			FPS4.Pack(
+				yur500_0_files,
+				yur500_0,
+				yur501_0.ContentBitmask,
+				yur501_0.Endian,
+				yur501_0.Unknown2,
+				null,
+				yur501_0.ArchiveName,
+				0,
+				0x8,
+				metadata: "p",
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: yur501_0.Files[yur501_0.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+			yur500_0.Position = 0;
+			var yur500_0b = yur500_0.CopyToByteArrayStreamAndDispose();
+
+			List<PackFileInfo> costume_archive_files = new List<PackFileInfo>();
+			costume_archive_files.Add(new PackFileInfo() { Length = yur500_0b.Length, DataStream = yur500_0b });
+			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[1].FileSize.Value, DataStream = yur501.GetChildByIndex(1).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[2].FileSize.Value, DataStream = yur501.GetChildByIndex(2).AsFile.DataStream });
+			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[3].FileSize.Value, DataStream = yur501.GetChildByIndex(3).AsFile.DataStream });
+
+			var costume_archive_stream = new MemoryStream();
+			FPS4.Pack(
+				costume_archive_files,
+				costume_archive_stream,
+				yur501.ContentBitmask,
+				yur501.Endian,
+				yur501.Unknown2,
+				null,
+				"YUR_C500",
+				0,
+				4,
+				alignmentFirstFile: 0x80,
+				setSectorSizeSameAsFileSize: true,
+				lastEntryPtrOverride: yur501.Files[yur501.Files.Count - 1].Location,
+				printProgressToConsole: false
+			);
+
+			var info = new ModelInfoFile() {
+				Chara = 1,
+				Name = "yuri abyss conversion",
+				Expl = "yuri abyss conversion",
+				FameId = 41,
+				ItemId = 1573,
+				File = "YUR_C500.dat",
+			};
+			info.Chr.Add(("NAME", "YUR_C500"));
+			info.Chr.Add(("BASE", "YUR_C000"));
+			info.Chr.Add(("BONE", "YUR_C000_BONE"));
+			List<string> uniqueFilenames = new List<string>();
+			for (int i = 0; i < yur500_0_files.Count; ++i) {
+				if (!uniqueFilenames.Contains(yur500_0_files[i].RelativePath)) {
+					uniqueFilenames.Add(yur500_0_files[i].RelativePath);
+				}
+			}
+			for (int i = 0; i < uniqueFilenames.Count; ++i) {
+				info.Chr.Add((i.ToString(System.Globalization.CultureInfo.InvariantCulture), uniqueFilenames[i]));
+			}
+			info.Chr.Add(("KK_BONE0", "4124"));
+			info.Chr.Add(("KK_GDT0", "KK_RING00_YUR"));
+
+			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
+		}
+
 		private static bool ContainsFile(FPS4 fps4, string filename) {
 			for (int i = 0; i < fps4.Files.Count - 1; ++i) {
 				if (fps4.Files[i].FileName == filename) {
@@ -539,6 +772,17 @@ namespace ToVPCCostumePatcher {
 				}
 
 				if (ps3dlcpath != null) {
+					string est_c500_path = Path.Combine(ps3dlcpath, "EST_C500.edat.unedat");
+					if (File.Exists(est_c500_path)) {
+						var est500 = BuildEST_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(est_c500_path).CopyToByteArrayAndDispose()))));
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/EST_C500.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(est500.data, fs);
+						}
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCINFO/EST_C500.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(est500.info, fs);
+						}
+					}
+
 					string fre_c500_path = Path.Combine(ps3dlcpath, "FRE_C500.edat.unedat");
 					if (File.Exists(fre_c500_path)) {
 						var fre500 = BuildFRE_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(fre_c500_path).CopyToByteArrayAndDispose()))));
@@ -547,6 +791,17 @@ namespace ToVPCCostumePatcher {
 						}
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCINFO/FRE_C500.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(fre500.info, fs);
+						}
+					}
+
+					string yur_c500_path = Path.Combine(ps3dlcpath, "YUR_C500.edat.unedat");
+					if (File.Exists(yur_c500_path)) {
+						var yur500 = BuildYUR_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(yur_c500_path).CopyToByteArrayAndDispose()))));
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/YUR_C500.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(yur500.data, fs);
+						}
+						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCINFO/YUR_C500.dat"), FileMode.Create)) {
+							StreamUtils.CopyStream(yur500.info, fs);
 						}
 					}
 
