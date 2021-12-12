@@ -348,8 +348,19 @@ namespace ToVPCCostumePatcher {
 			MemoryStream new_txv = new MemoryStream();
 			for (int i = 0; i < textures.Count; ++i) {
 				byte[] tex = textures[i];
-				offsets.Add((uint)new_txv.Position);
-				new_txv.Write(tex);
+				bool skip = false;
+				for (int j = 0; j < i; ++j) {
+					if (textures[j].Length == tex.Length && ArrayUtils.IsByteArrayPartEqual(textures[j], 0, tex, 0, tex.Length)) {
+						// dupe texture, only write once
+						offsets.Add(offsets[j]);
+						skip = true;
+						break;
+					}
+				}
+				if (!skip) {
+					offsets.Add((uint)new_txv.Position);
+					new_txv.Write(tex);
+				}
 			}
 			new_txv.Position = 0;
 
