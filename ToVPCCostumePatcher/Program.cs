@@ -11,6 +11,8 @@ using System.Linq;
 namespace ToVPCCostumePatcher {
 	class Program {
 		public static (DuplicatableStream data, DuplicatableStream info) BuildYUR_C201(FPS4 chara_svo) {
+			Console.WriteLine("Building YUR_C201...");
+
 			// grab other yuri costume as a base
 			using var yur200 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("YUR_C200.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
 
@@ -112,7 +114,9 @@ namespace ToVPCCostumePatcher {
 			return (new DuplicatableByteArrayStream(TLZC.Compress(yur201.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
 		}
 
-		public static (DuplicatableStream data, DuplicatableStream info) BuildFRE_C500(FPS4 chara_svo, string data64path, FPS4 fre500_ps3) {
+		public static (DuplicatableStream data, DuplicatableStream info) BuildFRE_C500(FPS4 chara_svo, string data64path, FPS4 fre500_ps3, string texreplacepath) {
+			Console.WriteLine("Building FRE_C500...");
+
 			using var fre500_0_ps3 = new FPS4(fre500_ps3.GetChildByIndex(0).AsFile.DataStream);
 
 			// FRE_C500 is very similar to FRE_C501, so instead of converting all of the PS3 file, use the existing data as best as possible and replace the few differences
@@ -138,7 +142,7 @@ namespace ToVPCCostumePatcher {
 			}
 
 			ConvertModelPart4(fre500_0_ps3, fre500_0_files, 14, 14);
-			ConvertTxmTxv(fre500_0_ps3, fre500_0_files, 18, 19, 18, 19);
+			ConvertTxmTxv(fre500_0_ps3, fre500_0_files, 18, 19, 18, 19, texreplacepath);
 
 			var fre500_0 = new MemoryStream();
 			FPS4.Pack(
@@ -305,18 +309,47 @@ namespace ToVPCCostumePatcher {
 			}
 		}
 
-		private static void ConvertTxmTxv(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int txmidx_ps3, int txvidx_ps3, int txmidx_pc, int txvidx_pc) {
+		private static void ConvertTxmTxv(FPS4 ps3fps4, List<PackFileInfo> pcfiles, int txmidx_ps3, int txvidx_ps3, int txmidx_pc, int txvidx_pc, string replacefolder) {
 			var txm = new HyoutaTools.Tales.Vesperia.Texture.TXM(ps3fps4.GetChildByIndex(txmidx_ps3).AsFile.DataStream);
 			var txv = new HyoutaTools.Tales.Vesperia.Texture.TXV(txm, ps3fps4.GetChildByIndex(txvidx_ps3).AsFile.DataStream, false);
-			List<uint> offsets = new List<uint>();
-			MemoryStream new_txv = new MemoryStream();
+
+			List<byte[]> textures = new List<byte[]>();
 			foreach (HyoutaTools.Tales.Vesperia.Texture.TXVSingle ts in txv.textures) {
 				foreach (var tex in ts.GetDiskWritableStreams()) {
-					tex.data.Position = 0;
-					offsets.Add((uint)new_txv.Position);
-					new_txv.WriteUInt32((uint)tex.data.Length, EndianUtils.Endianness.BigEndian);
-					StreamUtils.CopyStream(tex.data, new_txv, tex.data.Length);
+					Console.WriteLine("Converting " + tex.name + "...");
+
+					byte[] replace = null;
+					if (replacefolder != null) {
+						string inpath = Path.Combine(replacefolder, tex.name);
+						if (File.Exists(inpath)) {
+							Console.WriteLine("Injecting " + inpath + "...");
+							replace = File.ReadAllBytes(inpath);
+						} else {
+							Console.WriteLine("No file at " + inpath + ", using original texture.");
+						}
+					}
+
+					if (replace != null) {
+						MemoryStream ms = new MemoryStream();
+						ms.WriteUInt32((uint)replace.Length, EndianUtils.Endianness.BigEndian);
+						ms.Write(replace);
+						textures.Add(ms.CopyToByteArrayAndDispose());
+					} else {
+						MemoryStream ms = new MemoryStream();
+						ms.WriteUInt32((uint)tex.data.Length, EndianUtils.Endianness.BigEndian);
+						tex.data.Position = 0;
+						StreamUtils.CopyStream(tex.data, ms, tex.data.Length);
+						textures.Add(ms.CopyToByteArrayAndDispose());
+					}
 				}
+			}
+
+			List<uint> offsets = new List<uint>();
+			MemoryStream new_txv = new MemoryStream();
+			for (int i = 0; i < textures.Count; ++i) {
+				byte[] tex = textures[i];
+				offsets.Add((uint)new_txv.Position);
+				new_txv.Write(tex);
 			}
 			new_txv.Position = 0;
 
@@ -333,7 +366,9 @@ namespace ToVPCCostumePatcher {
 			pcfiles[txvidx_pc].Length = pcfiles[txvidx_pc].DataStream.Length;
 		}
 
-		public static (DuplicatableStream data, DuplicatableStream info) BuildKAR_C210(FPS4 chara_svo, string data64path, FPS4 kar210_ps3) {
+		public static (DuplicatableStream data, DuplicatableStream info) BuildKAR_C210(FPS4 chara_svo, string data64path, FPS4 kar210_ps3, string texreplacepath) {
+			Console.WriteLine("Building KAR_C210...");
+
 			using var kar210_0_ps3 = new FPS4(kar210_ps3.GetChildByIndex(0).AsFile.DataStream);
 			using var kar101 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("KAR_C101.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
 			using var kar101_0 = new FPS4(kar101.GetChildByIndex(0).AsFile.DataStream);
@@ -365,8 +400,8 @@ namespace ToVPCCostumePatcher {
 			ConvertModelPart4(kar210_0_ps3, kar210_0_files, 14, 14);
 			ConvertModelPart7(kar210_0_ps3, kar210_0_files, 7, 7);
 			ConvertModelPart7(kar210_0_ps3, kar210_0_files, 17, 17);
-			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 8, 9, 8, 9);
-			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 18, 19, 18, 19);
+			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 8, 9, 8, 9, texreplacepath);
+			ConvertTxmTxv(kar210_0_ps3, kar210_0_files, 18, 19, 18, 19, texreplacepath);
 			FakeConvertModelPart6(kar210_0_ps3, kar210_0_files, 6, 6, 0x6b9c);
 			FakeConvertModelPart6(kar210_0_ps3, kar210_0_files, 16, 16, 0x12ba0);
 			FakeConvertModelPart0(kar210_0_ps3, kar210_0_files, 0, 0, new uint[] { 0x128, 0x15c, 0x174, 0x190, 0x1a8, 0x1b0 });
@@ -439,7 +474,9 @@ namespace ToVPCCostumePatcher {
 			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
 		}
 
-		public static (DuplicatableStream data, DuplicatableStream info) BuildEST_C500(FPS4 chara_svo, string data64path, FPS4 est500_ps3) {
+		public static (DuplicatableStream data, DuplicatableStream info) BuildEST_C500(FPS4 chara_svo, string data64path, FPS4 est500_ps3, string texreplacepath) {
+			Console.WriteLine("Building EST_C500...");
+
 			using var est500_0_ps3 = new FPS4(est500_ps3.GetChildByIndex(0).AsFile.DataStream);
 			using var est000 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(chara_svo.GetChildByName("EST_C000.DAT").AsFile.DataStream.CopyToByteArrayAndDispose())));
 			using var est000_0 = new FPS4(est000.GetChildByIndex(0).AsFile.DataStream);
@@ -491,7 +528,7 @@ namespace ToVPCCostumePatcher {
 			}
 
 			ConvertModelPart4(est500_0_ps3, est500_0_files, 14, 14);
-			ConvertTxmTxv(est500_0_ps3, est500_0_files, 18, 19, 18, 19);
+			ConvertTxmTxv(est500_0_ps3, est500_0_files, 18, 19, 18, 19, texreplacepath);
 			FakeConvertModelPart0(est500_0_ps3, est500_0_files, 10, 10, new uint[] { 0x194, 0x1c8, 0x1fc, 0x230, 0x280 });
 			FakeConvertModelPart3(est500_0_ps3, est500_0_files, 13, 13, 0x58c, 0x660);
 			FakeConvertModelPart6(est500_0_ps3, est500_0_files, 16, 16, 0x8668);
@@ -565,7 +602,9 @@ namespace ToVPCCostumePatcher {
 			return (new DuplicatableByteArrayStream(TLZC.Compress(costume_archive_stream.CopyToByteArrayAndDispose(), 4)), info.GenerateStream());
 		}
 
-		public static (DuplicatableStream data, DuplicatableStream info) BuildYUR_C500(FPS4 chara_svo, string data64path, FPS4 yur500_ps3) {
+		public static (DuplicatableStream data, DuplicatableStream info) BuildYUR_C500(FPS4 chara_svo, string data64path, FPS4 yur500_ps3, string texreplacepath) {
+			Console.WriteLine("Building YUR_C500...");
+
 			using var yur500_0_ps3 = new FPS4(yur500_ps3.GetChildByIndex(0).AsFile.DataStream);
 			using var yur501 = new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(Path.Combine(data64path, "DLC/DLCDATA/YUR_C501.dat")).CopyToByteArrayAndDispose())));
 			using var yur501_0 = new FPS4(yur501.GetChildByIndex(0).AsFile.DataStream);
@@ -600,8 +639,8 @@ namespace ToVPCCostumePatcher {
 			FakeConvertModelPart6(yur500_0_ps3, yur500_0_files, 16, 16, 0x1c48);
 			FakeConvertModelPart6(yur500_0_ps3, yur500_0_files, 36, 36, 0x7d70);
 			ConvertModelPart7(yur500_0_ps3, yur500_0_files, 17, 17);
-			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 18, 19, 18, 19);
-			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 38, 39, 38, 39);
+			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 18, 19, 18, 19, texreplacepath);
+			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 38, 39, 38, 39, texreplacepath);
 
 			var yur500_0 = new MemoryStream();
 			FPS4.Pack(
@@ -749,9 +788,11 @@ namespace ToVPCCostumePatcher {
 
 		static void Main(string[] args) {
 			if (args.Length == 0) {
+				Console.WriteLine("Generates custom DLC costume files.");
+				Console.WriteLine();
 				Console.WriteLine("1st argument: Path to Data64 directory.");
 				Console.WriteLine("2nd argument (optional): Path to DLCDATA directory of PS3 version. Files should be already decrypted, and named like 'KAR_C210.edat.unedat'.");
-				Console.WriteLine("Generates custom DLC costume files.");
+				Console.WriteLine("3rd argument (optional): Folder containing replacement textures.");
 				return;
 			}
 
@@ -762,6 +803,7 @@ namespace ToVPCCostumePatcher {
 
 			string data64path = args[0];
 			string ps3dlcpath = args.Length >= 2 ? args[1] : null;
+			string texreplacepath = args.Length >= 3 ? args[2] : null;
 			using (var chara_svo = new FPS4(Path.Combine(data64path, "chara.svo"))) {
 				var yur201 = BuildYUR_C201(chara_svo);
 				using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/YUR_C201.dat"), FileMode.Create)) {
@@ -774,7 +816,7 @@ namespace ToVPCCostumePatcher {
 				if (ps3dlcpath != null) {
 					string est_c500_path = Path.Combine(ps3dlcpath, "EST_C500.edat.unedat");
 					if (File.Exists(est_c500_path)) {
-						var est500 = BuildEST_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(est_c500_path).CopyToByteArrayAndDispose()))));
+						var est500 = BuildEST_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(est_c500_path).CopyToByteArrayAndDispose()))), texreplacepath);
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/EST_C500.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(est500.data, fs);
 						}
@@ -785,7 +827,7 @@ namespace ToVPCCostumePatcher {
 
 					string fre_c500_path = Path.Combine(ps3dlcpath, "FRE_C500.edat.unedat");
 					if (File.Exists(fre_c500_path)) {
-						var fre500 = BuildFRE_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(fre_c500_path).CopyToByteArrayAndDispose()))));
+						var fre500 = BuildFRE_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(fre_c500_path).CopyToByteArrayAndDispose()))), texreplacepath);
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/FRE_C500.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(fre500.data, fs);
 						}
@@ -796,7 +838,7 @@ namespace ToVPCCostumePatcher {
 
 					string yur_c500_path = Path.Combine(ps3dlcpath, "YUR_C500.edat.unedat");
 					if (File.Exists(yur_c500_path)) {
-						var yur500 = BuildYUR_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(yur_c500_path).CopyToByteArrayAndDispose()))));
+						var yur500 = BuildYUR_C500(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(yur_c500_path).CopyToByteArrayAndDispose()))), texreplacepath);
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/YUR_C500.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(yur500.data, fs);
 						}
@@ -807,7 +849,7 @@ namespace ToVPCCostumePatcher {
 
 					string kar_c210_path = Path.Combine(ps3dlcpath, "KAR_C210.edat.unedat");
 					if (File.Exists(kar_c210_path)) {
-						var kar210 = BuildKAR_C210(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(kar_c210_path).CopyToByteArrayAndDispose()))));
+						var kar210 = BuildKAR_C210(chara_svo, data64path, new FPS4(new DuplicatableByteArrayStream(TLZC.Decompress(new DuplicatableFileStream(kar_c210_path).CopyToByteArrayAndDispose()))), texreplacepath);
 						using (var fs = new FileStream(Path.Combine(data64path, "DLC/DLCDATA/KAR_C210.dat"), FileMode.Create)) {
 							StreamUtils.CopyStream(kar210.data, fs);
 						}
