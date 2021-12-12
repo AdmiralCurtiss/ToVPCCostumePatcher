@@ -45,6 +45,8 @@ namespace ToVPCCostumePatcher {
 				});
 			}
 
+			DetectDuplicateFiles(ref yur201_0_files);
+
 			var yur201_0 = new MemoryStream();
 			FPS4.Pack(
 				yur201_0_files,
@@ -70,6 +72,7 @@ namespace ToVPCCostumePatcher {
 			yur201_files.Add(new PackFileInfo() { Length = yur200.Files[1].FileSize.Value, DataStream = yur200.GetChildByIndex(1).AsFile.DataStream });
 			yur201_files.Add(new PackFileInfo() { Length = yur200.Files[2].FileSize.Value, DataStream = yur200.GetChildByIndex(2).AsFile.DataStream });
 			yur201_files.Add(new PackFileInfo() { Length = yur200.Files[3].FileSize.Value, DataStream = yur200.GetChildByIndex(3).AsFile.DataStream });
+			DetectDuplicateFiles(ref yur201_files);
 
 			var yur201 = new MemoryStream();
 			FPS4.Pack(
@@ -144,6 +147,8 @@ namespace ToVPCCostumePatcher {
 			ConvertModelPart4(fre500_0_ps3, fre500_0_files, 14, 14);
 			ConvertTxmTxv(fre500_0_ps3, fre500_0_files, 18, 19, 18, 19, texreplacepath);
 
+			DetectDuplicateFiles(ref fre500_0_files);
+
 			var fre500_0 = new MemoryStream();
 			FPS4.Pack(
 				fre500_0_files,
@@ -169,6 +174,7 @@ namespace ToVPCCostumePatcher {
 			costume_archive_files.Add(new PackFileInfo() { Length = fre501.Files[1].FileSize.Value, DataStream = fre501.GetChildByIndex(1).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = fre501.Files[2].FileSize.Value, DataStream = fre501.GetChildByIndex(2).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = fre501.Files[3].FileSize.Value, DataStream = fre501.GetChildByIndex(3).AsFile.DataStream });
+			DetectDuplicateFiles(ref costume_archive_files);
 
 			var costume_archive_stream = new MemoryStream();
 			FPS4.Pack(
@@ -377,6 +383,10 @@ namespace ToVPCCostumePatcher {
 			pcfiles[txvidx_pc].Length = pcfiles[txvidx_pc].DataStream.Length;
 		}
 
+		private static void DetectDuplicateFiles(ref List<PackFileInfo> costume_archive_files) {
+			costume_archive_files = FPS4.DetectDuplicates(costume_archive_files);
+		}
+
 		public static (DuplicatableStream data, DuplicatableStream info) BuildKAR_C210(FPS4 chara_svo, string data64path, FPS4 kar210_ps3, string texreplacepath) {
 			Console.WriteLine("Building KAR_C210...");
 
@@ -418,6 +428,8 @@ namespace ToVPCCostumePatcher {
 			FakeConvertModelPart0(kar210_0_ps3, kar210_0_files, 0, 0, new uint[] { 0x128, 0x15c, 0x174, 0x190, 0x1a8, 0x1b0 });
 			FakeConvertModelPart3(kar210_0_ps3, kar210_0_files, 3, 3, 0x3bc, 0x460);
 
+			DetectDuplicateFiles(ref kar210_0_files);
+
 			var kar210_0 = new MemoryStream();
 			FPS4.Pack(
 				kar210_0_files,
@@ -443,6 +455,7 @@ namespace ToVPCCostumePatcher {
 			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[1].FileSize.Value, DataStream = kar101.GetChildByIndex(1).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[2].FileSize.Value, DataStream = kar101.GetChildByIndex(2).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = kar101.Files[3].FileSize.Value, DataStream = kar101.GetChildByIndex(3).AsFile.DataStream });
+			DetectDuplicateFiles(ref costume_archive_files);
 
 			var costume_archive_stream = new MemoryStream();
 			FPS4.Pack(
@@ -544,6 +557,8 @@ namespace ToVPCCostumePatcher {
 			FakeConvertModelPart3(est500_0_ps3, est500_0_files, 13, 13, 0x58c, 0x660);
 			FakeConvertModelPart6(est500_0_ps3, est500_0_files, 16, 16, 0x8668);
 
+			DetectDuplicateFiles(ref est500_0_files);
+
 			var est500_0 = new MemoryStream();
 			FPS4.Pack(
 				est500_0_files,
@@ -569,6 +584,7 @@ namespace ToVPCCostumePatcher {
 			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[1].FileSize.Value, DataStream = est501.GetChildByIndex(1).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[2].FileSize.Value, DataStream = est501.GetChildByIndex(2).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = est501.Files[3].FileSize.Value, DataStream = est501.GetChildByIndex(3).AsFile.DataStream });
+			DetectDuplicateFiles(ref costume_archive_files);
 
 			var costume_archive_stream = new MemoryStream();
 			FPS4.Pack(
@@ -653,6 +669,8 @@ namespace ToVPCCostumePatcher {
 			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 18, 19, 18, 19, texreplacepath);
 			ConvertTxmTxv(yur500_0_ps3, yur500_0_files, 38, 39, 38, 39, texreplacepath);
 
+			DetectDuplicateFiles(ref yur500_0_files);
+
 			var yur500_0 = new MemoryStream();
 			FPS4.Pack(
 				yur500_0_files,
@@ -678,6 +696,7 @@ namespace ToVPCCostumePatcher {
 			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[1].FileSize.Value, DataStream = yur501.GetChildByIndex(1).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[2].FileSize.Value, DataStream = yur501.GetChildByIndex(2).AsFile.DataStream });
 			costume_archive_files.Add(new PackFileInfo() { Length = yur501.Files[3].FileSize.Value, DataStream = yur501.GetChildByIndex(3).AsFile.DataStream });
+			DetectDuplicateFiles(ref costume_archive_files);
 
 			var costume_archive_stream = new MemoryStream();
 			FPS4.Pack(
@@ -777,6 +796,7 @@ namespace ToVPCCostumePatcher {
 				}
 
 				using (var fs = new FileStream(new_chara_svo_path, FileMode.Create)) {
+					DetectDuplicateFiles(ref files);
 					FPS4.Pack(
 						files,
 						fs,
